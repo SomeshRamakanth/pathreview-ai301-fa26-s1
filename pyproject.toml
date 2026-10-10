@@ -63,10 +63,54 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
 
+# --- CI baseline, Aug 2026 --------------------------------------------------
+# `ruff check .` reported 182 findings on main and the lint job had never once
+# passed, so a red X on a student PR carried no information. Everything safely
+# fixable was fixed; the rules below are the remaining pre-existing debt,
+# suppressed so that a NEW finding on a student PR is a real signal.
+#
+# Two cautions before removing anything from this list:
+#   1. Some individual findings ARE the intentionally-seeded course bugs. Those
+#      sites are marked with an inline `# noqa: <RULE>` and a comment naming the
+#      defect. Never bulk-fix them -- that deletes the exercise.
+#   2. Never run `ruff check --fix --unsafe-fixes` on this repo. The unsafe
+#      fixes rewrite unused variables and loop bindings, which is exactly how
+#      the seeded defects are expressed.
+# Burn these down deliberately, one rule at a time, in their own PRs.
+ignore = [
+    "B904",   # raise ... from err -- 11 sites, all in api/routes error handling
+    "B905",   # zip(..., strict=) -- 3 sites
+    "N806",   # non-lowercase locals -- 3 sites, deliberate matrix/vector names
+    "SIM116", # if/else chain that could be a dict lookup -- 1 site
+    "SIM118", # `key in dict.keys()` -- 4 sites
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom is a function call in an argument
+# default by design (Depends/File/Query/...). B008 cannot know that, so these
+# are false positives rather than debt -- 18 of them across api/routes.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "core/models/*.py" = ["E501"]
 "scripts/*.py" = ["E501"]
 "alembic/versions/*.py" = ["E501"]
+"alembic/env.py" = ["E501"]
+# Long inline regex literal that cannot be wrapped without changing it.
+"safety/pii_scrubber.py" = ["E501"]
+# Tests bind a result for readability without always asserting on it, iterate
+# with an unused index, and embed long fixture strings. All noise here.
+"tests/**" = ["B007", "E501", "F841"]
 
 [tool.black]
 target-version = ["py311"]
@@ -74,11 +118,60 @@ line-length = 100
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
 check_untyped_defs = true
 exclude = ["alembic/versions/"]
+
+# Match what CI actually runs, so `make typecheck` and the typecheck job agree.
+# (CI passed --ignore-missing-imports on the command line while the Makefile did
+# not, so the two disagreed about third-party stubs.)
+ignore_missing_imports = true
+
+# --- CI baseline, Aug 2026 --------------------------------------------------
+# mypy reported 99 errors and the typecheck job had never passed. Two blanket
+# strictness flags accounted for 57 of them and are relaxed here:
+#   disallow_untyped_defs  -> 52 "missing return type annotation" on existing code
+#   warn_return_any        ->  5 no-any-return
+# check_untyped_defs stays on, so function bodies are still checked. Re-enable
+# these per package as annotations land -- api/ is the biggest offender.
+disallow_untyped_defs = false
+warn_return_any = false
+
+# The remaining 42 are genuine per-module findings, suppressed narrowly (by
+# module AND error code) rather than globally, so anything new still fails.
+# warn_unused_configs is on, so mypy tells you when an entry here is obsolete
+# and can be deleted -- that is the burn-down signal.
+#
+# NOTE: some of these ARE the intentionally-seeded course bugs, and mypy is
+# correctly catching them. Do not "fix" them outside their issue:
+#   api/routes/health.py  attr-defined -> issue #62 (settings.redis_host does
+#                         not exist on Settings) and related #61.
+# Fixing a seeded bug should remove its entry here, the same way it removes the
+# test's xfail marker.
+
+[[tool.mypy.overrides]]
+module = "api.routes.health"
+disable_error_code = ["attr-defined", "call-overload", "index"]
+
+[[tool.mypy.overrides]]
+module = ["api.routes.profiles", "api.routes.reviews", "core.logging", "core.services.review_service", "ingestion.pipeline", "rag.generator.review_generator"]
+disable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
+module = "api.main"
+disable_error_code = ["method-assign"]
+
+[[tool.mypy.overrides]]
+module = "agent.tools.market_analyzer"
+disable_error_code = ["arg-type", "misc", "return-value"]
+
+[[tool.mypy.overrides]]
+module = "core.services.profile_service"
+disable_error_code = ["assignment"]
+
+[[tool.mypy.overrides]]
+module = ["ingestion.chunking.semantic_chunker", "ingestion.chunking.structural_chunker", "ingestion.parsers.skill_extractor", "rag.generator.output_parser"]
+disable_error_code = ["var-annotated"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

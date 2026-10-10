@@ -1,6 +1,7 @@
 """PII detection and scrubbing."""
 
 import re
+
 import structlog
 
 logger = structlog.get_logger()
@@ -35,7 +36,9 @@ class PIIScrubber:
         """
         scrubbed = text
 
-        for pii_type, pattern in self.PII_PATTERNS.items():
+        # `pii_type` is unused here -- the scrubber does not record WHICH pattern
+        # matched, which is itself a known weakness of this implementation.
+        for pii_type, pattern in self.PII_PATTERNS.items():  # noqa: B007
             scrubbed = re.sub(pattern, "[REDACTED]", scrubbed, flags=re.IGNORECASE)
 
         return scrubbed
@@ -53,13 +56,17 @@ class PIIScrubber:
 
         for pii_type, pattern in self.PII_PATTERNS.items():
             for match in re.finditer(pattern, text, flags=re.IGNORECASE):
-                detected.append({
-                    "type": pii_type,
-                    "value": match.group(),
-                    "start": match.start(),
-                    "end": match.end()
-                })
+                detected.append(
+                    {
+                        "type": pii_type,
+                        "value": match.group(),
+                        "start": match.start(),
+                        "end": match.end(),
+                    }
+                )
 
-        logger.info("pii_detected", count=len(detected), types=len(set(d["type"] for d in detected)))
+        logger.info(
+            "pii_detected", count=len(detected), types=len(set(d["type"] for d in detected))
+        )
 
         return detected
