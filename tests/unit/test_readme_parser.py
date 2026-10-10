@@ -2,8 +2,8 @@
 
 import pytest
 
-from ingestion.parsers.readme_parser import ReadmeParser
 from ingestion.parsers.base import ParseResult
+from ingestion.parsers.readme_parser import ReadmeParser
 
 
 @pytest.mark.unit
@@ -15,6 +15,10 @@ class TestReadmeParser:
         """Create a ReadmeParser instance."""
         return ReadmeParser()
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="issue #70 (manifest H-03): README parser fixture is indented, so it has no headings",
+    )
     def test_parse_standard_readme(self, parser, sample_readme_text):
         """Test parsing a standard README."""
         result = parser.parse(sample_readme_text)
@@ -114,7 +118,7 @@ class TestReadmeParser:
 
     def test_parse_readme_bytes_with_utf8(self, parser):
         """Test parsing README bytes with UTF-8 characters."""
-        readme_bytes = "# Café README\nThis has émojis 🎉".encode("utf-8")
+        readme_bytes = "# Café README\nThis has émojis 🎉".encode()
         result = parser.parse(readme_bytes)
 
         assert isinstance(result, ParseResult)
@@ -127,6 +131,10 @@ class TestReadmeParser:
 
         assert "Content must be a string or bytes" in str(exc_info.value)
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="issue #71 (manifest H-04): heading hierarchy fixture is indented, so it has no headings",
+    )
     def test_extract_heading_hierarchy(self, parser):
         """Test heading hierarchy extraction."""
         markdown = """

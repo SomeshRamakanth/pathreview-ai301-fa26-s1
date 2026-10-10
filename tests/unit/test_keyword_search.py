@@ -1,7 +1,6 @@
 """Tests for keyword_search.py"""
 
 import pytest
-from unittest.mock import Mock, patch
 
 from rag.retriever.keyword_search import KeywordSearcher
 
@@ -82,10 +81,7 @@ class TestKeywordSearcher:
 
     def test_top_k_limit(self, searcher):
         """Test that top_k parameter limits results."""
-        chunks = [
-            {"id": i, "text": f"python content {i}"}
-            for i in range(20)
-        ]
+        chunks = [{"id": i, "text": f"python content {i}"} for i in range(20)]
 
         searcher.index(chunks)
         results = searcher.search("python", top_k=5)
@@ -135,6 +131,10 @@ class TestKeywordSearcher:
         assert result["source"] == "readme"
         assert result["custom"] == "value"
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="issue #68 (manifest H-01): BM25 keyword search raises ZeroDivisionError on an empty index",
+    )
     def test_empty_index(self, searcher):
         """Test searching on empty index."""
         searcher.index([])

@@ -49,22 +49,26 @@ class StructuralChunker(BaseChunker):
             if section_tokens > self.SECTION_TOKEN_LIMIT:
                 # Sub-chunk using semantic chunker
                 section_metadata = metadata.copy()
-                section_metadata.update({
-                    "heading_path": heading_path,
-                    "heading_level": section["level"],
-                })
+                section_metadata.update(
+                    {
+                        "heading_path": heading_path,
+                        "heading_level": section["level"],
+                    }
+                )
                 sub_chunks = self.semantic_chunker.chunk(section_text, section_metadata)
                 chunks.extend(sub_chunks)
             else:
                 # Single chunk for this section
                 section_metadata = metadata.copy()
-                section_metadata.update({
-                    "heading_path": heading_path,
-                    "heading_level": section["level"],
-                    "chunk_index": len(chunks),
-                    "char_start": 0,
-                    "char_end": len(section_text),
-                })
+                section_metadata.update(
+                    {
+                        "heading_path": heading_path,
+                        "heading_level": section["level"],
+                        "chunk_index": len(chunks),
+                        "char_start": 0,
+                        "char_end": len(section_text),
+                    }
+                )
                 chunks.append(Chunk(text=section_text, metadata=section_metadata))
 
         return chunks
@@ -88,11 +92,13 @@ class StructuralChunker(BaseChunker):
                 # Save previous section if exists
                 if current_section_lines:
                     if heading_stack:
-                        sections.append({
-                            "content": "\n".join(current_section_lines).strip(),
-                            "path": [h[1] for h in heading_stack],
-                            "level": heading_stack[-1][0] if heading_stack else 0,
-                        })
+                        sections.append(
+                            {
+                                "content": "\n".join(current_section_lines).strip(),
+                                "path": [h[1] for h in heading_stack],
+                                "level": heading_stack[-1][0] if heading_stack else 0,
+                            }
+                        )
                     current_section_lines = []
 
                 # Process new heading
@@ -104,7 +110,10 @@ class StructuralChunker(BaseChunker):
                     heading_stack.pop()
 
                 heading_stack.append((heading_level, heading_text))
-                current_level = heading_level
+                # Seeded defect (issue #56): the tracked heading level is never read back,
+                # so heading-less documents get dropped. Leave as-is -- removing the
+                # assignment would hide the bug from students.
+                current_level = heading_level  # noqa: F841
 
             else:
                 # Regular content line
@@ -113,10 +122,12 @@ class StructuralChunker(BaseChunker):
 
         # Save final section
         if current_section_lines and heading_stack:
-            sections.append({
-                "content": "\n".join(current_section_lines).strip(),
-                "path": [h[1] for h in heading_stack],
-                "level": heading_stack[-1][0] if heading_stack else 0,
-            })
+            sections.append(
+                {
+                    "content": "\n".join(current_section_lines).strip(),
+                    "path": [h[1] for h in heading_stack],
+                    "level": heading_stack[-1][0] if heading_stack else 0,
+                }
+            )
 
         return sections
